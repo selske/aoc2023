@@ -35,7 +35,9 @@ public class Day09 extends Day {
 
     private Result solve(String input) {
         List<long[]> levels = new ArrayList<>();
-        long[] currentLevel = Pattern.compile("-?\\d+").matcher(input).results().mapToLong(r -> Long.parseLong(r.group())).toArray();
+        long[] currentLevel = Pattern.compile("-?\\d+").matcher(input).results()
+                .mapToLong(r -> Long.parseLong(r.group()))
+                .toArray();
 
         levels.add(currentLevel);
         do {
