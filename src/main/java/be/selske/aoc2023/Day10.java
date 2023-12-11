@@ -5,6 +5,7 @@ import be.selske.aoc2023.benchmark.Day;
 import java.util.*;
 
 import static be.selske.aoc2023.Day10.Direction.*;
+import static java.util.stream.Collectors.toSet;
 
 public class Day10 extends Day {
 
@@ -14,7 +15,7 @@ public class Day10 extends Day {
 
     public static void main(String[] args) {
         new Day10()
-                .example()
+//                .example()
                 .puzzle()
                 .benchmark()
                 .verifyPart1("7107")
@@ -31,31 +32,138 @@ public class Day10 extends Day {
                 .findAny()
                 .orElseThrow();
 
-        Map<Point, Character> pathMap = getPath(diagram, direction, points);
-
-        print(diagram, pathMap);
-
-        results.setPart1(pathMap.size() / 2);
-        results.setPart2(null);
-    }
-
-    private Map<Point, Character> getPath(Diagram diagram, Direction direction, Map<Point, Character> points) {
         Point current = diagram.start();
         Map<Point, Character> path = new LinkedHashMap<>();
+        Set<Point> left = new HashSet<>();
+        Set<Point> right = new HashSet<>();
         do {
             path.put(current, diagram.map.get(current));
             diagram.map.remove(current);
             current = current.getNeighbour(direction);
             direction = getNextDirection(current, direction.comingFrom(), points);
+            if (diagram.map.get(current) == null) {
+                continue;
+            }
+
+            switch (diagram.map.get(current)) {
+                case '|' -> {
+                    if (direction == NORTH) {
+                        left.add(current.getNeighbour(WEST));
+                        right.add(current.getNeighbour(EAST));
+                    } else if (direction == SOUTH) {
+                        left.add(current.getNeighbour(EAST));
+                        right.add(current.getNeighbour(WEST));
+                    } else {
+                        throw new IllegalStateException();
+                    }
+                }
+                case '-' -> {
+                    if (direction == WEST) {
+                        left.add(current.getNeighbour(SOUTH));
+                        right.add(current.getNeighbour(NORTH));
+                    } else if (direction == EAST) {
+                        left.add(current.getNeighbour(NORTH));
+                        right.add(current.getNeighbour(SOUTH));
+                    } else {
+                        throw new IllegalStateException();
+                    }
+                }
+                case 'L' -> {
+                    if (direction == EAST) {
+                        right.add(current.getNeighbour(WEST));
+                        right.add(current.getNeighbour(SOUTH));
+                    } else if (direction == NORTH) {
+                        left.add(current.getNeighbour(WEST));
+                        left.add(current.getNeighbour(SOUTH));
+                    }
+                }
+                case 'F' -> {
+                    if (direction == SOUTH) {
+                        right.add(current.getNeighbour(WEST));
+                        right.add(current.getNeighbour(NORTH));
+                    } else if (direction == EAST) {
+                        left.add(current.getNeighbour(WEST));
+                        left.add(current.getNeighbour(NORTH));
+                    }
+                }
+                case 'J' -> {
+                    if (direction == WEST) {
+                        left.add(current.getNeighbour(EAST));
+                        left.add(current.getNeighbour(SOUTH));
+                    } else if (direction == NORTH) {
+                        right.add(current.getNeighbour(EAST));
+                        right.add(current.getNeighbour(SOUTH));
+                    }
+                }
+                case '7' -> {
+                    if (direction == SOUTH) {
+                        left.add(current.getNeighbour(NORTH));
+                        left.add(current.getNeighbour(EAST));
+                    } else if (direction == WEST) {
+                        right.add(current.getNeighbour(NORTH));
+                        right.add(current.getNeighbour(EAST));
+                    }
+                }
+            }
         } while (direction != null);
-        return path;
+
+        left.removeAll(path.keySet());
+        right.removeAll(path.keySet());
+
+        diagram.map.keySet()
+                .forEach(p -> {
+                    if (find(Set.of(p), diagram.map.keySet(), right, left)) {
+                        right.add(p);
+                    } else {
+                        left.add(p);
+                    }
+                });
+
+
+        int part2;
+        if (left.stream().anyMatch(p -> p.row == 0 || p.row == diagram.rows - 1 || p.col == 0 || p.col == diagram.cols - 1)) {
+            part2 = right.size();
+        } else {
+            part2 = left.size();
+        }
+
+//        print(diagram, path, left, right);
+
+        results.setPart1(path.size() / 2);
+        results.setPart2(part2);
     }
 
-    private void print(Diagram diagram, Map<Point, Character> path) {
+    private boolean find(Set<Point> pointsToCheck, Set<Point> points, Set<Point> target, Set<Point> other) {
+        if (pointsToCheck.isEmpty()) {
+            return false;
+        }
+        if (pointsToCheck.stream().anyMatch(target::contains)) {
+            return true;
+        }
+        if (pointsToCheck.stream().anyMatch(other::contains)) {
+            return false;
+        }
+        Set<Point> nextPoints = pointsToCheck.stream()
+                .parallel()
+                .flatMap(point -> Arrays.stream(values()).map(point::getNeighbour))
+                .filter(points::contains)
+                .collect(toSet());
+        Set<Point> newPoints = new HashSet<>(points);
+        nextPoints.forEach(newPoints::remove);
+        pointsToCheck.forEach(newPoints::remove);
+        return find(nextPoints, newPoints, target, other);
+
+    }
+
+    private void print(Diagram diagram, Map<Point, Character> path, Set<Point> left, Set<Point> right) {
         for (int row = 0; row < diagram.rows; row++) {
             for (int col = 0; col < diagram.cols; col++) {
                 Point point = new Point(row, col);
-                if (diagram.map().containsKey(point)) {
+                if (left.contains(point)) {
+                    System.out.print('L');
+                } else if (right.contains(point)) {
+                    System.out.print('R');
+                } else if (diagram.map().containsKey(point)) {
                     System.out.print('X');
                 } else if (path.containsKey(point)) {
                     char c = path.get(point);
