@@ -3,14 +3,16 @@ package be.selske.aoc2023;
 import be.selske.aoc2023.benchmark.Day;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
-import static java.lang.Math.abs;
+import static java.lang.Integer.parseInt;
 
 public class Day15 extends Day {
 
     public Day15() {
-        super(11);
+        super(15);
     }
 
     public static void main(String[] args) {
@@ -18,60 +20,79 @@ public class Day15 extends Day {
                 .example()
                 .puzzle()
                 .benchmark()
-                .verifyPart1("9947476")
-                .verifyPart2(null);
+                .verifyPart1("521341")
+                .verifyPart2("252782");
     }
 
     @Override
     protected void solve(ResultContainer results, String input, String parameter) {
-        List<String> lines = input.lines().toList();
+        var lines = input.split(",");
 
-        List<Point> points = new ArrayList<>();
-        for (int row = 0; row < lines.size(); row++) {
-            String line = lines.get(row);
-            for (int col = 0; col < line.length(); col++) {
-                if (line.charAt(col) == '#') {
-                    points.add(new Point(row, col));
+        int part1 = 0;
+
+        var boxes = Stream.generate(() -> new ArrayList<Lens>()).limit(256).toList();
+        outer:
+        for (String line : lines) {
+            part1 += hash(line);
+
+            int equalsIndex = line.indexOf('=');
+            if (equalsIndex < 0) {
+                String[] split = line.split("-");
+                String label = split[0];
+                int box = hash(label);
+
+                List<Lens> lenses = boxes.get(box);
+                for (int j = 0; j < lenses.size(); j++) {
+                    Lens lens = lenses.get(j);
+                    if (label.equals(lens.label)) {
+                        lenses.remove(j);
+                        continue outer;
+                    }
                 }
-            }
-        }
-        List<Integer> emptyRows = new ArrayList<>();
-        for (int row = 0; row < lines.size(); row++) {
-            int rowToCheck = row;
-            if (points.stream().noneMatch(p -> p.row() == rowToCheck)) {
-                emptyRows.add(row);
-            }
-        }
-        List<Integer> emptyCols = new ArrayList<>();
-        for (int col = 0; col < lines.size(); col++) {
-            int colToCheck = col;
-            if (points.stream().noneMatch(p -> p.col() == colToCheck)) {
-                emptyCols.add(col);
+            } else {
+                String[] split = line.split("=");
+                String label = split[0];
+                int focalLength = parseInt(split[1]);
+                int box = hash(label);
+
+                List<Lens> lenses = boxes.get(box);
+                Lens newLens = new Lens(label, focalLength);
+                for (int j = 0; j < lenses.size(); j++) {
+                    Lens lens = lenses.get(j);
+                    if (label.equals(lens.label)) {
+                        lenses.set(j, newLens);
+                        continue outer;
+                    }
+                }
+                lenses.add(newLens);
             }
         }
 
-        long part1 = 0L;
-        long part2 = 0L;
-        for (int i = 0; i < points.size() - 1; i++) {
-            Point a = points.get(i);
-            for (int j = i + 1; j < points.size(); j++) {
-                Point b = points.get(j);
-                long distance = abs(a.row - b.row) + abs(a.col - b.col);
-                long emptyRowsBetween = emptyRows.stream()
-                        .filter(row -> (a.row < row && row < b.row) || (b.row < row && row < a.row))
-                        .count();
-                long emptyColsBetween = emptyCols.stream()
-                        .filter(col -> (a.col < col && col < b.col) || (b.col < col && col < a.col))
-                        .count();
-                part1 += distance + emptyRowsBetween + emptyColsBetween;
-                part2 += distance + emptyRowsBetween * (1_000_000 - 1) + emptyColsBetween * (1_000_000 - 1);
+        int part2 = 0;
+        for (int i = 0; i < boxes.size(); i++) {
+            List<Lens> box = boxes.get(i);
+
+            for (int j = 0; j < box.size(); j++) {
+                Lens lens = box.get(j);
+                part2 += (i + 1) * (j + 1) * lens.focalLength;
             }
+
         }
 
         results.setPart1(part1);
         results.setPart2(part2);
     }
 
-    private record Point(int row, int col) {}
+    record Lens(String label, int focalLength) {}
 
+    private static int hash(String line) {
+        int value = 0;
+        for (int i = 0; i < line.length(); i++) {
+            int c = line.charAt(i);
+            value += c;
+            value *= 17;
+            value %= 256;
+        }
+        return value;
+    }
 }
